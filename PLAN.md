@@ -1,0 +1,258 @@
+# besm2_fmt: the Oberon-2 port, rewritten on Ropes
+
+**Source being rewritten:** the Oberon-2 `besm2_fmt` in
+`~/Repos/RPG/Tools/obesm2_fmt` ("the Buffer port" below; about 2,440
+lines in `src/`), a port of the Ada `besm2_fmt`, itself a port of
+`besm2-rst.scm`. It reads YAML files of BESM 2E entities and writes
+each as reST grid tables (the default), terse (`-t`), an h-m-m outline
+(`-H`) or raw ms/tbl (`-m`). All of its text handling goes through its
+own `Besm2Str.Mod`: `String = POINTER TO ARRAY OF CHAR`, a growable
+`Buffer`, and a `List` of strings.
+
+**Target:** the same program with `Besm2Str.Mod` gone and every string
+a `Ropes.Rope`, from `Ropes.Mod` (`~/Repos/Oberon/Ropes`). Everything
+else is kept: voc under `-OC`, `ArgParser`, olibfyaml, the module
+layout, the tests, the executable's name.
+
+**Acceptance criteria:**
+
+1. `make test` passes: every golden file in `test/golden/` (generated
+   from the Ada binary, and copied here unchanged) still matches byte
+   for byte, and `test/cli.sh` passes unchanged.
+2. `make compare` passes: standard output, standard error and exit
+   status are identical to the Buffer port's binary for every fixture
+   under every flag set. This covers what the golden files don't, the
+   error messages. The one exception, a defect in the Buffer port, is
+   listed under "Deliberate differences" below.
+
+The design of the program itself (the entity records, the four
+backends, the error and exit-status rules, the quirks copied from the
+Ada version) isn't repeated here. It is in the Buffer port's
+`PLAN.md`, sections 1 to 8, and `ADA-DIFFERENCES.md`, and all of it
+still holds. This plan covers only what changes.
+
+## 1. What `Ropes` replaces, and what it doesn't have
+
+| Buffer port (`Besm2Str`) | Here |
+|---|---|
+| `String` (`POINTER TO ARRAY OF CHAR`, 0X-terminated) | `Ropes.Rope` |
+| `Of(s)` | `Ropes.FromString(s)` |
+| `Empty()`, and `""` as a value | `NIL`: the empty rope **is** NIL (see §2) |
+| `Length(s^)` (bytes) | `Ropes.Length(r)` |
+| `s^ = "ACV"` | `Ropes.EqualString(r, "ACV")` |
+| `Concat`, `Concat3`, `Buffer` with `Add`/`AddChar`/`Get` | `Ropes.Cat`, `Ropes.AppendChar`; `Besm2Text.Add` for a literal |
+| `Repeat(c, n)`, `AddRepeat` | `Ropes.Make(n, c)` |
+| `AllOneLine`/`SpaceToNewline` loops in the backends | `Ropes.Map` with a module-level `Mapper` |
+| `WordWrap`'s character loop | `Ropes.FindToken` with a `CharSet` of the break characters, `Ropes.Substring` |
+| `Besm2Out.Str(s)` | `Besm2Out.Rope(r)`, leaf by leaf with `Ropes.IterateChunks` |
+
+What `Ropes` doesn't have goes in one small module, **`Besm2Text`**,
+which imports only `Ropes`:
+
+| Needed | Why `Ropes` alone won't do | `Besm2Text` |
+|---|---|---|
+| A decimal integer as a rope | No such operation | `Int`, `AddInt` |
+| Width in UTF-8 characters | `Ropes.Length` counts bytes | `DisplayLength`: `Ropes.CountSet` with the set of bytes that aren't continuation bytes |
+| Trim of blank, tab, LF, CR | `Ropes.Trim` also strips form feed (0CX), which the Ada version and the Buffer port keep | `Trim`: `IndexSet`/`RIndexSet` with that set, then `Substring` |
+| The Ada `To_Lower` fold for sorting | `Ropes.CompareNoCase` folds ASCII only; the Ada fold also moves bytes `C0X..DEX` | `FoldCI` (`Ropes.Map`), `LessCI` (`Ropes.Compare` of the folded ropes) |
+| A growable list of strings, `Join`, a stable sort | `Ropes.Pieces` is a fixed array from `SplitArray` | `List`, `Clear`, `Append`, `Join`, `SortCI` |
+| Text for `Err.String`, `Platform.New`, `FyamlStreams.OpenFile` | `Ropes.ToString` needs the caller to size the array | `Chars(r)`: a heap array of exactly `Length(r) + 1`, filled by `ToString` |
+| Appending a literal | It is `r := Ropes.Cat(r, Ropes.FromString("..."))` each time, about 60 times | `Add(VAR r; s)` |
+
+`Besm2Text` is not `Besm2Str` under another name: it has no string
+type and no buffer of its own, and callers use `Ropes` directly for
+everything `Ropes` has.
+
+## 2. The empty rope is NIL
+
+This is the one change that isn't mechanical. The Buffer port uses
+NIL for "absent" and `""` for "present but empty", as the Ada version
+uses `Has_Name` and friends, and the output differs: `name: ""` writes
+an empty header line and an empty underline, no `name` writes neither.
+With ropes both are NIL. So each place that tested a pointer gets an
+explicit flag:
+
+| Buffer port | Here |
+|---|---|
+| `e.name # NIL`, `e.tagline # NIL`, `e.description # NIL`, `e.size # NIL` | `e.hasName`, `e.hasTagline`, `e.hasDescription`, `e.hasSize` (the Ada `Has_*` again) |
+| `Besm2Config.hmmRoot # NIL`, `outputFile # NIL` | `Besm2Config.hasHmmRoot`, `hasOutputFile` (`-R ""` writes an empty root line; `-o ""` fails to create `""`) |
+| `Besm2RawMs.Row(a, b, c)` with `c = NIL` for two columns, `TextRow(a, b, text)` with `b = NIL` | `Row2`/`Row3`, `TextRow2`/`TextRow3` |
+| `Load` returning `msg # NIL` or `yerr # NIL` | Unchanged: `yerr = NIL` means the error is `msg`, which is never empty |
+| `Length(details^) > 0` | `details # NIL` |
+
+A new fixture, `test/data/empty-strings-2e.yaml` (`name: ""`,
+`tagline: ""`, `description: ""`, `size: ""` and more), with golden
+files from the Ada binary in all four formats, pins this down; no
+existing fixture had an empty string there. It also found a defect in
+the Buffer port (step 7).
+
+Locals aren't zeroed by voc, so a rope built up in a local variable
+starts with `r := NIL`, as a `Buffer` started with `Reset`.
+
+## 3. Where `Ropes.Mod` comes from
+
+From `OBERON_MODULES` (default
+`/usr/local/sw/versions/oberon/include`), through the makefile's
+`vpath`, like `ArgParser.Mod` and `Err.Mod`: that is how the Ropes
+repo's `AGENTS.md` says other repos get it (`make install` there), and
+the installed copy is identical to the checkout's today. It is
+compiled into `obj/` with this repo's `-OC` and `CFLAGS`. Nothing else
+from `~/Repos/Oberon/Ropes` is needed: `Ropes` imports only `Files`,
+`In` and `Out`, all in voc's `-OC` library.
+
+`Ropes` is developed under voc's default size model, where `LONGINT`
+is 32 bits; here it is 64 (`-OC`). Its length arithmetic guards
+against overflow with `MAX(LONGINT)`, so the wider type only loosens
+the limits. Checked before relying on it: see step 1.
+
+## 4. Module layout
+
+```
+obesm2_fmt2/
+  rtl/Args.Mod          -- unchanged
+  src/
+    Besm2Text.Mod       -- NEW: what Ropes lacks (§1)
+    Besm2Config.Mod     -- hmmRoot, outputFile as ropes, with has* flags
+    Besm2Out.Mod        -- Rope(r) replaces Str(s)
+    Besm2Layout.Mod     -- Pad, WordWrap, rows and emphasis over ropes
+    Besm2Entities.Mod   -- fields are ropes; hasName and friends
+    Besm2Terse.Mod, Besm2Grid.Mod, Besm2Hmm.Mod, Besm2RawMs.Mod
+    Besm2Cli.Mod        -- files is a Besm2Text.List
+    Besm2Fmt.Mod        -- main module
+  test/
+    TestText.Mod        -- replaces TestStr.Mod
+    TestLayout.Mod, TestEntities.Mod   -- same checks, over ropes
+    Check.Mod, data/, golden/, golden.cases, golden.sh, cli.sh, regs.sh   -- unchanged
+    compare.sh          -- NEW: against the Buffer port's binary (make compare)
+  tools/benchmark.sh    -- adds the Buffer port as a third column
+  GNUmakefile
+```
+
+Compile order: `Args`, `Err`, `ArgParser`, `FyThin`, `Fyaml`,
+`FyamlStreams`, `Ropes`, `Besm2Text`, `Besm2Config`, `Besm2Out`,
+`Besm2Layout`, `Besm2Cli`, `Besm2Entities`, `Besm2Terse`, `Besm2Grid`,
+`Besm2Hmm`, `Besm2RawMs`, then `Besm2Fmt -m`.
+
+## 5. Build order
+
+Each step ends with its tests passing and this file updated.
+
+1. [done] **Scaffolding.** Copied the makefile, `rtl/`, the tests,
+   fixtures and golden files from the Buffer port; added `Ropes` to
+   the shared modules, with a check that `Ropes.Mod` is in
+   `OBERON_MODULES`. Findings:
+   - **`Ropes` works under `-OC`.** `RopeTest.Mod`, built from the
+     Ropes checkout with `voc -OC` and the makefile's `CFLAGS`, passes
+     242 of 242 checks.
+   - `Ropes.Mod` in `OBERON_MODULES` is identical to the checkout's.
+2. [done] **`Besm2Text`** with `TestText` (46 checks): the `TestStr`
+   checks that still mean something, plus NIL (the empty rope) in every
+   operation, ropes of several leaves (`Ropes.Depth` > 0: built from
+   pieces longer than `ShortLeafLength`, since `Cat` merges shorter
+   ones) for `DisplayLength`, `Trim`, `LessCI` and `Chars`, and checks
+   that `Ropes.Trim` and `Ropes.CompareNoCase` really do differ from
+   what is needed (§1), so the reason for `Besm2Text.Trim` and `FoldCI`
+   stays pinned down.
+3. [done] **`Besm2Config`, `Besm2Out`, `Besm2Layout`** with `TestLayout`
+   (44 checks: all 39 of the Buffer port's, unchanged in what they
+   expect, plus whitespace-only wrapping, a word that crosses a leaf
+   boundary, a NIL cell, and bold and italics of the empty rope).
+   `TestLayout` reads its capture files back with
+   `Ropes.ReadLineRider`. `WordWrap` finds words with
+   `Ropes.FindToken`; `Pad` is `Cat` with `Ropes.Make` (not
+   `Ropes.Head`, which truncates and counts bytes); `Besm2Out.Rope`
+   writes leaf by leaf with `Ropes.IterateChunks`.
+4. [done] **`Besm2Cli`**: `files` is a `Besm2Text.List` (an empty
+   argument is a NIL item, still a file name); `-u`/`-U` check their
+   argument with `Strings.Length`.
+5. [done] **`Besm2Entities`** with `TestEntities` (54 checks: the Buffer
+   port's 52, with NIL tests turned into `has*` tests, plus an empty
+   name, a tagline that trims to nothing, and details that trim to
+   nothing). The sort folds each name once (`FoldCI`) and compares
+   keys, instead of folding both names at every comparison.
+6. [done] **The four backends and `Besm2Fmt`.** Everything compiled on
+   the first build, and all 282 golden files and all 39 `cli.sh` checks
+   passed on the first run. `ProcessEntity`'s item text is built with
+   `Ropes.Cat`/`AppendChar`/`Besm2Text.Add`; `AllOneLine` and
+   `SpaceToNewline` are `Ropes.Map`; raw ms has `Row2`/`Row3` and
+   `TextRow2`/`TextRow3` (§2); `Besm2Fmt` writes `strerror`'s text
+   straight to `Err` instead of building a string.
+7. [done] **`test/compare.sh` (`make compare`) and the empty-string
+   fixtures.** `compare.sh` runs both programs on every fixture under
+   every flag set in `golden.cases` and on standard input, then several
+   files, `-o`, `-R ""`, `-o ""`, an empty file name, and the command
+   line errors: 1,072 runs, all identical in standard output, standard
+   error and exit status. Two new fixtures, each with golden files
+   from the Ada binary in all 37 per-fixture cases (356 golden files
+   now; the 282 old ones regenerated unchanged but for the five
+   several-files cases, which now include the new fixtures):
+   - `empty-strings-2e.yaml`: `name`, `tagline`, `description` and
+     `size` present but empty, a tagline and details of blanks only,
+     an empty `effective`, empty stat names and values. The Ada binary,
+     the Buffer port and this program agree on all of it, in every
+     format.
+   - `empty-items-2e.yaml`, for **a defect in the Buffer port found
+     here**: `alternatives: [""]` or `specialisations: [""]` (a list
+     whose items are all empty). The Ada version and `besm2-rst` write
+     `Attack Combat Value ()` in the grid and raw ms formats, testing
+     whether the list is empty; the Buffer port tested whether the
+     joined text was empty and wrote `Attack Combat Value`. With ropes
+     the joined text is NIL either way, which is what exposed it. This
+     program follows the Ada version (`WithList` in `Besm2Grid` and
+     `Besm2RawMs`), so its golden files pass and `compare.sh` skips the
+     fixture. **This is the one deliberate difference from the Buffer
+     port.** Terse and h-m-m already tested the list in both.
+   - **The checks bite.** Planted one at a time, each of these bugs was
+     caught: folding ASCII only (1 unit check, 42 golden cases, 48
+     compare runs fail), trimming form feeds (1 unit check), measuring
+     width in bytes (6, 70, 103), an unstable sort (1, 1, 48), testing
+     `e.name # NIL` instead of `e.hasName` in the grid format (golden
+     11, compare 14), and rewording an error message (compare 224;
+     the golden files, which leave out standard error for bad input,
+     and the unit tests don't see it).
+8. [done] **`make valgrind`, `make benchmark`, README.**
+   - **`make valgrind`**: 133 runs, no errors, nothing lost. The check
+     that nothing is still reachable but voc's heap chunk had to
+     change: on the run with every fixture as arguments, voc's heap
+     grows a second 256,024-byte chunk (allocated under
+     `Ropes.StartWalk`, from the sort), which the Buffer port never
+     needed. That isn't a leak, so the makefile now requires every
+     still-reachable record to come from `Heap_NewChunk` instead of
+     exactly one record.
+   - **`make benchmark`** (`PERFORMANCE-COMPARISON.md`, now with the
+     Buffer port as a third column): per invocation, the two ports are
+     within 5 to 16% of each other; on 2,000 entities, ropes are faster
+     than buffers in 6 of 8 cases (0.49 to 0.85 of the time) and slower
+     in 2 (1.09, 1.22), and still 2 to 3 times the Ada binary. These
+     are single runs, and the Buffer port's own figures moved by up to
+     2.4 times between its report and this one (grid, 2,000
+     documents), so read them as "about the same speed", not as a
+     ranking. Peak memory is the same.
+   - `make rst` builds the same 42 files as the Ada binary's output for
+     the same flags. `make install` checked with `DESTDIR` only.
+   - README rewritten for this repo.
+
+## Deliberate differences from the Buffer port
+
+| What | Buffer port | Here | Step |
+|---|---|---|---|
+| A list of only empty strings in grid and raw ms (`alternatives: [""]`) | `Attack Combat Value` | `Attack Combat Value ()`, as the Ada version and `besm2-rst` | 7 |
+
+The Buffer port should get the same fix (its `WithParens` callers in
+`Besm2Grid` and `Besm2RawMs`), and an entry in its
+`ADA-DIFFERENCES.md`, section 1 or 2; that is a change to another
+repo, so it is left for the user.
+
+## Open questions
+
+- **Should `Besm2Text`'s general parts move into `Ropes`?** `Int`, a
+  UTF-8 character count, a rope list with `Join`, and a `Trim` that
+  takes a `CharSet` aren't specific to BESM. That is a change to the
+  Ropes repo (and its Ada twin's conventions), so it needs the user's
+  go-ahead.
+- ~~**Does this repo replace `obesm2_fmt` or sit beside it?**~~
+  Decided (2026-09-30): it sits beside it for now. So this repo keeps
+  pointing at `obesm2_fmt` for `ADA-DIFFERENCES.md`, `VOC-GC-BUG.md`
+  and the history in its `PLAN.md`, rather than copying them, and the
+  Buffer port stays the oracle for `make compare`. Revisit if this repo
+  is ever to replace it; those documents would then move here.
