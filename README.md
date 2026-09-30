@@ -16,8 +16,7 @@ of the Ada `besm2_fmt`, itself a port of `besm2-rst.scm` from
 
 The output is byte-for-byte the same as the Ada binary's (the golden
 tests check this) and, standard error and exit statuses included, as
-the Oberon-2 original's (`make compare` checks this), with one
-deliberate exception described in [PLAN.md](PLAN.md), step 7.
+the Oberon-2 original's (`make compare` checks this).
 
 ## Usage
 

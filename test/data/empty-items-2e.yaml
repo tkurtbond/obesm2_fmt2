@@ -2,9 +2,8 @@
 # Lists whose only items are empty strings.  The list isn't empty, so
 # the Ada version and besm2-rst.scm still write the parentheses around
 # it: "Attack Combat Value ()".  The Buffer port's grid and raw ms
-# formats tested the joined text instead and left them out; this
-# program follows the Ada version (PLAN.md, step 7), so test/compare.sh
-# skips this fixture.
+# formats once tested the joined text instead and left them out
+# (PLAN.md, step 7).
 - name: Empty items
   derived:
     - {name: ACV, value: 9, alternatives: [""]}

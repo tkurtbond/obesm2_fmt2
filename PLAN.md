@@ -22,8 +22,8 @@ layout, the tests, the executable's name.
 2. `make compare` passes: standard output, standard error and exit
    status are identical to the Buffer port's binary for every fixture
    under every flag set. This covers what the golden files don't, the
-   error messages. The one exception, a defect in the Buffer port, is
-   listed under "Deliberate differences" below.
+   error messages. (A defect in the Buffer port found here was fixed
+   there too: step 7.)
 
 The design of the program itself (the entity records, the four
 backends, the error and exit-status rules, the quirks copied from the
@@ -181,8 +181,9 @@ Each step ends with its tests passing and this file updated.
    fixtures.** `compare.sh` runs both programs on every fixture under
    every flag set in `golden.cases` and on standard input, then several
    files, `-o`, `-R ""`, `-o ""`, an empty file name, and the command
-   line errors: 1,072 runs, all identical in standard output, standard
-   error and exit status. Two new fixtures, each with golden files
+   line errors: 1,072 runs (1,116 once the fixture below was no longer
+   skipped), all identical in standard output, standard error and exit
+   status. Two new fixtures, each with golden files
    from the Ada binary in all 37 per-fixture cases (356 golden files
    now; the 282 old ones regenerated unchanged but for the five
    several-files cases, which now include the new fixtures):
@@ -199,9 +200,11 @@ Each step ends with its tests passing and this file updated.
      joined text was empty and wrote `Attack Combat Value`. With ropes
      the joined text is NIL either way, which is what exposed it. This
      program follows the Ada version (`WithList` in `Besm2Grid` and
-     `Besm2RawMs`), so its golden files pass and `compare.sh` skips the
-     fixture. **This is the one deliberate difference from the Buffer
-     port.** Terse and h-m-m already tested the list in both.
+     `Besm2RawMs`). Terse and h-m-m already tested the list in both.
+     Until the Buffer port was fixed too (its PLAN.md, step 12, the
+     same `WithList`, and the same two fixtures), `compare.sh` skipped
+     this fixture; now it doesn't, and the two repos' golden
+     directories are identical.
    - **The checks bite.** Planted one at a time, each of these bugs was
      caught: folding ASCII only (1 unit check, 42 golden cases, 48
      compare runs fail), trimming form feeds (1 unit check), measuring
@@ -234,14 +237,9 @@ Each step ends with its tests passing and this file updated.
 
 ## Deliberate differences from the Buffer port
 
-| What | Buffer port | Here | Step |
-|---|---|---|---|
-| A list of only empty strings in grid and raw ms (`alternatives: [""]`) | `Attack Combat Value` | `Attack Combat Value ()`, as the Ada version and `besm2-rst` | 7 |
-
-The Buffer port should get the same fix (its `WithParens` callers in
-`Besm2Grid` and `Besm2RawMs`), and an entry in its
-`ADA-DIFFERENCES.md`, section 1 or 2; that is a change to another
-repo, so it is left for the user.
+None. The one there was (step 7) was a defect in the Buffer port, and
+it has been fixed there the same way. A new one needs an entry here
+and a `skip` in `test/compare.sh`.
 
 ## Open questions
 

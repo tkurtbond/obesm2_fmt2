@@ -21,8 +21,8 @@ failed=0 count=0
 [ -x "$ref" ] || { echo "compare.sh: not executable: $ref (make in the Buffer port)" >&2; exit 2; }
 
 # Fixtures where this program departs from the Buffer port on purpose,
-# following the Ada version; each has a PLAN.md entry.
-skip=" empty-items-2e "
+# following the Ada version, each with a PLAN.md entry: none now.
+skip=" "
 
 # The flag sets of test/golden.cases, each once, plus none.
 mapfile -t flagsets < <(echo; grep -vE '^[[:space:]]*(#|$)' test/golden.cases \
@@ -71,7 +71,7 @@ for f in test/data/*.yaml; do
 done
 
 # Several files in one run, bad ones among them, and -o.
-mapfile -t all < <(ls test/data/*.yaml | grep -v -e empty-items-2e)
+mapfile -t all < <(ls test/data/*.yaml)
 same "every fixture in one run" /dev/null "${all[@]}"
 same "every fixture in one run [-m -U ~]" /dev/null -m -U '~' "${all[@]}"
 same "every fixture in one run [-H -R Root -S]" /dev/null -H -R Root -S "${all[@]}"
