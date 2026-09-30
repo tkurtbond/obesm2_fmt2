@@ -73,7 +73,7 @@ $(if $(wildcard $(addsuffix /Ropes.Mod,$(subst :, ,$(OBERON_MODULES)))),,$(error
 $(if $(wildcard $(OLIBFYAML)/src/Fyaml.Mod),,$(error olibfyaml not found in OLIBFYAML ($(OLIBFYAML))))
 endif
 
-.PHONY: all test compare golden valgrind benchmark rst pdf install uninstall clean testclean
+.PHONY: all test compare golden valgrind benchmark perfdata perfcompare rst pdf install uninstall clean testclean
 
 all: $(PROGRAM)
 
@@ -179,6 +179,33 @@ compare: $(PROGRAM)
 # see tools/benchmark.sh.
 benchmark: $(PROGRAM)
 	ADA_BESM2_FMT=$(ADA_BESM2_FMT) OLD_BESM2_FMT=$(OLD_BESM2_FMT) tools/benchmark.sh
+
+# Performance data for this program alone: tools/perfdata.sh (the same
+# file in obesm2_fmt and obesm2_fmt2) times it on inputs made from two
+# fixtures, in the four formats, and writes $(PERF_DATA), which
+# obesm2_fmt2's make perfcompare reads.  The settings are passed to the
+# script; PERF_CPU= (empty) turns pinning off.
+PERF_DATA       ?= $(BUILD)/perfdata.tsv
+PERF_COPIES     ?= 2000
+PERF_RUNS_SMALL ?= 31
+PERF_RUNS_BIG   ?= 7
+PERF_CPU        ?= 2
+perfdata: $(PROGRAM) | $(BUILD)
+	PERF_OUT=$(PERF_DATA) PERF_DIR=$(BUILD)/perf PERF_COPIES='$(PERF_COPIES)' \
+	  PERF_RUNS_SMALL='$(PERF_RUNS_SMALL)' PERF_RUNS_BIG='$(PERF_RUNS_BIG)' PERF_CPU='$(PERF_CPU)' \
+	  tools/perfdata.sh
+
+# The two ports compared (PLAN.md, step 9): make perfdata here and in
+# the Buffer port's checkout, OLD_DIR, with the same settings, then a
+# Markdown report in $(PERF_REPORT) from tools/perfcompare.sh.
+OLD_DIR     ?= $(HOME)/Repos/RPG/Tools/obesm2_fmt
+PERF_REPORT ?= PERFORMANCE-ROPES-VS-BUFFERS.md
+perfcompare: perfdata
+	$(MAKE) -C $(OLD_DIR) perfdata PERF_COPIES='$(PERF_COPIES)' PERF_RUNS_SMALL='$(PERF_RUNS_SMALL)' \
+	  PERF_RUNS_BIG='$(PERF_RUNS_BIG)' PERF_CPU='$(PERF_CPU)'
+	tools/perfcompare.sh $(OLD_DIR)/$(BUILD)/perfdata.tsv $(PERF_DATA) Buffers Ropes >$(PERF_REPORT).tmp
+	mv $(PERF_REPORT).tmp $(PERF_REPORT)
+	@echo "Wrote $(PERF_REPORT)."
 
 # Rewrite test/golden/ from the reference programs: the Ada besm2_fmt
 # and, for the cases where the port follows it instead, besm2-rst.  See

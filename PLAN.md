@@ -235,6 +235,44 @@ Each step ends with its tests passing and this file updated.
      the same flags. `make install` checked with `DESTDIR` only.
    - README rewritten for this repo.
 
+9. [done] **Performance against the Buffer port: `make perfdata` in both
+   repos, `make perfcompare` here** (`PERFORMANCE-ROPES-VS-BUFFERS.md`).
+   `tools/perfdata.sh`, identical in both repos, measures one program
+   on inputs made from `enyon-boase-2e` and `synthetic-2e`: each alone
+   ("small", 31 runs), and 2,000 copies of its entities as one document
+   ("doc") and as 2,000 documents ("docs"), 7 runs each, in all four
+   formats. Each run is pinned to one performance core under
+   `perf stat`: user-mode instructions (steady to about 0.03%), CPU
+   time and wall time, as median, minimum and maximum, plus peak memory
+   from one run and a checksum of the output. `tools/perfcompare.sh`
+   refuses data from different inputs or format versions, confirms the
+   outputs are identical, and writes the tables and geometric means.
+   A full run takes about five minutes. The first one (2026-09-30):
+   - **On big inputs ropes are faster**: 0.48 to 0.80 of the Buffer
+     port's instructions in 13 of the 16 big cases, about the same in
+     `docs` grid and h-m-m of `enyon-boase` (1.02, 1.10), and slower
+     only in h-m-m of `docs-synthetic` (1.15). CPU time follows
+     (0.48 to 0.85; 1.07 to 1.21 for the same three).
+   - **On one small file ropes are slower**: 1.09 to 1.11 times the
+     instructions in most formats, but 2.8 to 4.3 times in grid (both
+     fixtures) and in h-m-m and raw ms of `synthetic` -- about 2 times
+     the CPU time, 0.6 to 1.6 ms more.
+   - **Garbage collection explains both.** Counting `Heap_GC` calls
+     with gdb: on one small file the rope program allocates just enough
+     more to trigger one to three collections where the Buffer port
+     has none or one, and each sweeps voc's whole first heap chunk, a
+     few million instructions -- a threshold effect, not a cost per
+     entity. On the big inputs it is the other way round: terse of
+     `doc-enyon-boase` collects 255 times with ropes and 672 times with
+     buffers, since a `Buffer` allocated a 64-byte array at every
+     `Reset` and copied its text again at every `Get`, where ropes
+     share their pieces. The GC dominates both programs' own time
+     (the Buffer port's PLAN.md, step 11, found libfyaml and `malloc`
+     the rest).
+   - Peak memory is the same within noise: voc's heap dominates it.
+   - Overall, geometric mean of all 24 cases: 0.97 of the
+     instructions, 0.89 of the CPU time.
+
 ## Deliberate differences from the Buffer port
 
 None. The one there was (step 7) was a defect in the Buffer port, and

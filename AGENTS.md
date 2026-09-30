@@ -46,6 +46,8 @@ make compare    # stdout, stderr and status against the Buffer port's binary
 make golden     # regenerate test/golden/ from the reference programs
 make valgrind   # the program under valgrind over every fixture and path
 make benchmark  # timing against the Ada binary and the Buffer port
+make perfdata   # measure this program alone: build/perfdata.tsv
+make perfcompare  # perfdata here and in the Buffer port, then PERFORMANCE-ROPES-VS-BUFFERS.md
 make rst        # build/*.gen.rst from test/data/*-2e.yaml
 make pdf        # build/*.ms.pdf from those (pandoc, --template=tkb)
 make install    # to $(PREFIX)/bin, default ~/local/bin (DESTDIR for staging)
@@ -83,6 +85,14 @@ make print-VAR  # show a makefile variable
   `./besm2_fmt`. Link main modules with `-m`, not `-M`.
 - A new library module goes in `PROGMODS` (in import order), a unit
   test in `TESTS`.
+- **`tools/perfdata.sh` is shared**: the Buffer port has an identical
+  copy, so both programs are measured the same way. Change both
+  together (`cmp` them), and bump its `FORMAT_VERSION` when the data
+  format changes; `tools/perfcompare.sh` refuses files whose versions
+  differ. Compare performance by instruction counts first: they barely
+  move between runs, where CPU times on this laptop move by 10% or
+  more. `make perfcompare` takes several minutes; `PERF_COPIES`,
+  `PERF_RUNS_SMALL` and `PERF_RUNS_BIG` make a quick trial run.
 
 ## Testing policy
 

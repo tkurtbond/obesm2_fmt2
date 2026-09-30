@@ -58,6 +58,7 @@ make test           # unit tests, command-line checks, golden-output tests
 make compare        # stdout, stderr and status against the original's binary
 make valgrind       # the program under valgrind, over every fixture
 make benchmark      # time against the Ada binary and the original
+make perfcompare    # measure this and the original the same way; PERFORMANCE-ROPES-VS-BUFFERS.md
 make install        # to $(PREFIX)/bin, default ~/local/bin
 make uninstall
 make rst            # build/*.gen.rst from the test fixtures
@@ -77,3 +78,6 @@ for staging) to install elsewhere.
   and the findings of each step.
 - [PERFORMANCE-COMPARISON.md](PERFORMANCE-COMPARISON.md): timings
   against the Ada version and the original, from `make benchmark`.
+- [PERFORMANCE-ROPES-VS-BUFFERS.md](PERFORMANCE-ROPES-VS-BUFFERS.md):
+  this program against the original, measured the same way in both
+  repos (instruction counts and CPU time), from `make perfcompare`.
