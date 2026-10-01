@@ -23,7 +23,7 @@ file is operational notes, not a design doc.
 | What | Where |
 |---|---|
 | The Buffer port being rewritten | `~/Repos/RPG/Tools/obesm2_fmt/` (`src/`, `PLAN.md`, `ADA-DIFFERENCES.md`, `VOC-GC-BUG.md`) |
-| Its binary (the oracle for `make compare`) | `~/Repos/RPG/Tools/obesm2_fmt/besm2_fmt` (build with `make` there) |
+| Its binary (the oracle for `make compare`) | `~/Repos/RPG/Tools/obesm2_fmt/obesm2_fmt` (build with `make` there) |
 | Ropes | `~/Repos/Oberon/Ropes/` (`AGENTS.md`, `Ropes.Mod`, `RopeTest.Mod`); installed copy in `$OBERON_MODULES` |
 | Ada program | `~/Repos/RPG/Tools/besm2_fmt/` |
 | Ada binary (the oracle for `make golden`) | `~/Repos/RPG/Tools/besm2_fmt/besm2_fmt` |
@@ -40,7 +40,7 @@ working around any of those libraries.
 
 ```sh
 export PATH=/usr/local/sw/versions/voc/git/bin:$PATH
-make            # obj/ (voc output) and ./besm2_fmt
+make            # obj/ (voc output) and ./obesm2_fmt2
 make test       # unit tests, test/regs.sh, test/cli.sh, test/golden.sh check
 make compare    # stdout, stderr and status against the Buffer port's binary
 make golden     # regenerate test/golden/ from the reference programs
@@ -58,8 +58,8 @@ make print-VAR  # show a makefile variable
 ```
 
 - **Don't run `make install` with the default `PREFIX` unless asked**:
-  `~/local/bin/besm2_fmt` is the installed Ada binary, and this
-  replaces it. Check the target with `make install DESTDIR=<scratch>`.
+  it puts `obesm2_fmt2` in `~/local/bin`, beside the installed Ada
+  `besm2_fmt`. Check the target with `make install DESTDIR=<scratch>`.
 - **Everything is compiled with `-OC`**, as the first voc option,
   because olibfyaml requires it, and size models can't be mixed.
   Under `-OC`, `INTEGER` is 32 bits and `LONGINT` 64. `Ropes` is
@@ -82,7 +82,9 @@ make print-VAR  # show a makefile variable
 - `LDLIBS=$(pkg-config --libs libfyaml)` and `CFLAGS` (below) must be
   exported; the makefile does both.
 - The main module is `Besm2Fmt`; the makefile copies `obj/Besm2Fmt` to
-  `./besm2_fmt`. Link main modules with `-m`, not `-M`.
+  `./obesm2_fmt2`, named for this repo so it can be installed beside the
+  Ada `besm2_fmt` and the Buffer port's `obesm2_fmt`. Its messages still
+  say `besm2_fmt`, as the Ada version's do. Link main modules with `-m`, not `-M`.
 - A new library module goes in `PROGMODS` (in import order), a unit
   test in `TESTS`.
 - **`tools/perfdata.sh` is shared**: the Buffer port has an identical

@@ -9,7 +9,7 @@
 # Before Ada 8308c10 (the Buffer port's PLAN.md, step 14), -u/-U with
 # more than one character and -w below 25 exited 2 only here.
 
-prog=${1:-./besm2_fmt}
+prog=${1:-./obesm2_fmt2}
 data=test/data
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

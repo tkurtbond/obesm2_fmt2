@@ -9,11 +9,11 @@
 # ok/FAIL per run, and exits 1 if any failed.
 #
 # REFERENCE defaults to $OLD_BESM2_FMT, or else
-# ~/Repos/RPG/Tools/obesm2_fmt/besm2_fmt.
+# ~/Repos/RPG/Tools/obesm2_fmt/obesm2_fmt.
 
 set -u
-prog=${1:-./besm2_fmt}
-ref=${2:-${OLD_BESM2_FMT:-$HOME/Repos/RPG/Tools/obesm2_fmt/besm2_fmt}}
+prog=${1:-./obesm2_fmt2}
+ref=${2:-${OLD_BESM2_FMT:-$HOME/Repos/RPG/Tools/obesm2_fmt/obesm2_fmt}}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 failed=0 count=0

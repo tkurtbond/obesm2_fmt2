@@ -53,7 +53,7 @@ You need:
   `~/Repos/Oberon/olibfyaml`).
 
 ```sh
-make                # ./besm2_fmt
+make                # ./obesm2_fmt2
 make test           # unit tests, command-line checks, golden-output tests
 make compare        # stdout, stderr and status against the original's binary
 make valgrind       # the program under valgrind, over every fixture
@@ -66,9 +66,11 @@ make pdf            # build/*.ms.pdf from those, via pandoc and the tkb ms templ
 make clean          # everything built; make testclean removes only build/
 ```
 
-`make install` puts the program in `$HOME/local/bin` by default,
-replacing any `besm2_fmt` already there. Set `PREFIX` (and `DESTDIR`
-for staging) to install elsewhere.
+The program is built as `obesm2_fmt2`, so it can be installed beside
+the Ada `besm2_fmt` and the Buffer port's `obesm2_fmt`; its messages
+and usage still call it `besm2_fmt`, as the Ada version's do.
+`make install` puts it in `$HOME/local/bin` by default. Set `PREFIX`
+(and `DESTDIR` for staging) to install elsewhere.
 
 ## Documents
 

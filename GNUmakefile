@@ -48,7 +48,7 @@ vpath %.Mod rtl src test $(subst :, ,$(OBERON_MODULES)) $(OLIBFYAML)/src
 OBJ   := obj
 BUILD := build
 
-PROGRAM := besm2_fmt
+PROGRAM := obesm2_fmt2
 MAIN    := Besm2Fmt
 
 # Library modules, in import order.  Args is rtl/Args.Mod, standing in
@@ -170,7 +170,7 @@ valgrind: $(PROGRAM) | $(OBJ)
 # port's binary, over every fixture and flag set (PLAN.md, acceptance
 # criteria); see test/compare.sh.  Not part of test: it needs the
 # Buffer port built.
-OLD_BESM2_FMT ?= $(HOME)/Repos/RPG/Tools/obesm2_fmt/besm2_fmt
+OLD_BESM2_FMT ?= $(HOME)/Repos/RPG/Tools/obesm2_fmt/obesm2_fmt
 compare: $(PROGRAM)
 	test/compare.sh ./$(PROGRAM) $(OLD_BESM2_FMT)
 
