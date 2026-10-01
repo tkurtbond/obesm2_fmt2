@@ -198,7 +198,11 @@ BEGIN
 
   IF ~Besm2Config.omitEntityDescription & e.hasDescription THEN
     paragraphSeen := TRUE;
-    Besm2Out.Rope(e.description); Besm2Out.Ln; Besm2Out.Ln
+    Besm2Out.Rope(e.description); Besm2Out.Ln; Besm2Out.Ln;
+    IF Besm2Config.pageAfterDescription THEN
+      Besm2Out.String(".. raw:: ms"); Besm2Out.Ln; Besm2Out.Ln;
+      Besm2Out.String("   .bp"); Besm2Out.Ln; Besm2Out.Ln
+    END
   END;
 
   IF e.hasSize THEN
@@ -272,12 +276,11 @@ BEGIN
     Line("")
   END;
 
-  (* The grand total only when positive, unlike the grid format's:
-     besm2-rst.scm's "(when (> entity-total 0) ...)".  The closing rule
-     and ".TE" always. *)
-  IF e.entityTotal > 0 THEN TotalRow(SignedPoints(e.entityTotal), "TOTAL") END;
+  TotalRow(SignedPoints(e.entityTotal), "TOTAL");
   Line("=");
-  Line(".TE")
+  Line(".TE");
+  (* The blank line ends the raw block before the next entity's name. *)
+  Besm2Out.Ln
 END ProcessEntity;
 
 BEGIN

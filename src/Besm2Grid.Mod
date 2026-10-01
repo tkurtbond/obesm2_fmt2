@@ -153,7 +153,11 @@ BEGIN
   END;
 
   IF ~Besm2Config.omitEntityDescription & e.hasDescription THEN
-    Besm2Out.Rope(e.description); Besm2Out.Ln; Besm2Out.Ln
+    Besm2Out.Rope(e.description); Besm2Out.Ln; Besm2Out.Ln;
+    IF Besm2Config.pageAfterDescription THEN
+      Besm2Out.String(".. raw:: ms"); Besm2Out.Ln; Besm2Out.Ln;
+      Besm2Out.String("   .bp"); Besm2Out.Ln; Besm2Out.Ln
+    END
   END;
 
   IF e.hasSize THEN
