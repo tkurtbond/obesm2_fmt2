@@ -37,12 +37,12 @@ BEGIN
   RETURN Ropes.Cat(r, level)
 END NameAndLevel;
 
-(* r, then " (", details and sep if there are any details, the points,
+(* r, then " (", details and ". " if there are any details, the points,
    and ")": the end of an attribute or a defect. *)
-PROCEDURE WithDetails(r, details: Rope; sep: ARRAY OF CHAR; points: INTEGER; mecha: BOOLEAN): Rope;
+PROCEDURE WithDetails(r, details: Rope; points: INTEGER; mecha: BOOLEAN): Rope;
 BEGIN
   Besm2Text.Add(r, " (");
-  IF details # NIL THEN r := Ropes.Cat(r, details); Besm2Text.Add(r, sep) END;
+  IF details # NIL THEN r := Ropes.Cat(r, details); Besm2Text.Add(r, ". ") END;
   r := Ropes.Cat(r, LabelPoints(points, mecha));
   RETURN Ropes.AppendChar(r, ")")
 END WithDetails;
@@ -70,15 +70,13 @@ END Derived;
 
 PROCEDURE Attribute(a: Besm2Entities.Attribute; mecha: BOOLEAN): Rope;
 BEGIN
-  RETURN WithDetails(Besm2Layout.Emphasizing(NameAndLevel(a.name, a.level)), a.details, ". ",
+  RETURN WithDetails(Besm2Layout.Emphasizing(NameAndLevel(a.name, a.level)), a.details,
                      a.points, mecha)
 END Attribute;
 
-(* Defect details are followed by two blanks, attribute details by one:
-   as in besm2-rst.scm. *)
 PROCEDURE Defect(d: Besm2Entities.Defect; mecha: BOOLEAN): Rope;
 BEGIN
-  RETURN WithDetails(Besm2Layout.Emphasizing(d.name), d.details, ".  ", d.points, mecha)
+  RETURN WithDetails(Besm2Layout.Emphasizing(d.name), d.details, d.points, mecha)
 END Defect;
 
 PROCEDURE Skill(s: Besm2Entities.Skill): Rope;
@@ -87,7 +85,7 @@ BEGIN
   r := Besm2Layout.Emphasizing(NameAndLevel(s.name, s.level));
   Besm2Text.Add(r, " (");
   IF s.specialisations.n > 0 THEN
-    r := Ropes.Cat(r, Besm2Text.Join(s.specialisations, ", ")); Besm2Text.Add(r, ".  ")
+    r := Ropes.Cat(r, Besm2Text.Join(s.specialisations, ", ")); Besm2Text.Add(r, ". ")
   END;
   Besm2Text.AddInt(r, s.points); Besm2Text.Add(r, " SP)");
   RETURN r
@@ -167,8 +165,7 @@ BEGIN
 
   IF e.stats.n > 0 THEN
     Besm2Out.Rope(Bold("Statistics"));
-    (* This subtotal alone has a trailing blank, in besm2-rst.scm too. *)
-    IF Besm2Config.showSubtotals THEN Subtotal(e.statsTotal, e.mecha); Besm2Out.Char(" ") END;
+    Subtotal(e.statsTotal, e.mecha);
     Besm2Out.String(" — "); Besm2Out.Ln;
     Items(e.stats, e.mecha)
   END;

@@ -65,12 +65,12 @@ BEGIN
   RETURN Besm2Layout.Emphasizing(Ropes.Cat(r, level))
 END NameAndLevel;
 
-(* r, then " (", the details, flattened, and sep if there are any
+(* r, then " (", the details, flattened, and ". " if there are any
    details, the points, and ")": the end of an attribute or a defect. *)
-PROCEDURE WithDetails(r, details: Rope; sep: ARRAY OF CHAR; points: INTEGER; mecha: BOOLEAN): Rope;
+PROCEDURE WithDetails(r, details: Rope; points: INTEGER; mecha: BOOLEAN): Rope;
 BEGIN
   Besm2Text.Add(r, " (");
-  IF details # NIL THEN r := Ropes.Cat(r, AllOneLine(details)); Besm2Text.Add(r, sep) END;
+  IF details # NIL THEN r := Ropes.Cat(r, AllOneLine(details)); Besm2Text.Add(r, ". ") END;
   r := Ropes.Cat(r, LabelPoints(points, mecha));
   RETURN Ropes.AppendChar(r, ")")
 END WithDetails;
@@ -97,13 +97,11 @@ BEGIN
 END Derived;
 
 PROCEDURE Attribute(a: Besm2Entities.Attribute; mecha: BOOLEAN): Rope;
-BEGIN RETURN WithDetails(NameAndLevel(a.name, a.level), a.details, ". ", a.points, mecha)
+BEGIN RETURN WithDetails(NameAndLevel(a.name, a.level), a.details, a.points, mecha)
 END Attribute;
 
-(* Two blanks after defect details, one after attribute details, as in
-   terse. *)
 PROCEDURE Defect(d: Besm2Entities.Defect; mecha: BOOLEAN): Rope;
-BEGIN RETURN WithDetails(Besm2Layout.Emphasizing(d.name), d.details, ".  ", d.points, mecha)
+BEGIN RETURN WithDetails(Besm2Layout.Emphasizing(d.name), d.details, d.points, mecha)
 END Defect;
 
 PROCEDURE Skill(s: Besm2Entities.Skill): Rope;
@@ -112,7 +110,7 @@ BEGIN
   r := NameAndLevel(s.name, s.level);
   Besm2Text.Add(r, " (");
   IF s.specialisations.n > 0 THEN
-    r := Ropes.Cat(r, Besm2Text.Join(s.specialisations, ", ")); Besm2Text.Add(r, ".  ")
+    r := Ropes.Cat(r, Besm2Text.Join(s.specialisations, ", ")); Besm2Text.Add(r, ". ")
   END;
   Besm2Text.AddInt(r, s.points); Besm2Text.Add(r, " SP)");
   RETURN r
@@ -180,8 +178,7 @@ BEGIN
   END;
 
   IF ~Besm2Config.omitEntityDescription & e.hasDescription THEN
-    (* With a trailing blank, as in besm2-rst.scm. *)
-    Indent(d2); Besm2Out.Rope(AllOneLine(e.description)); Besm2Out.Char(" "); Besm2Out.Ln
+    Indent(d2); Besm2Out.Rope(AllOneLine(e.description)); Besm2Out.Ln
   END;
 
   IF e.hasSize THEN
@@ -191,8 +188,7 @@ BEGIN
 
   IF e.stats.n > 0 THEN
     Heading(d2, "Statistics");
-    (* This subtotal alone has a trailing blank, as in terse. *)
-    IF Besm2Config.showSubtotals THEN Subtotal(e.statsTotal, e.mecha); Besm2Out.Char(" ") END;
+    Subtotal(e.statsTotal, e.mecha);
     Besm2Out.Ln;
     Items(e.stats, e.mecha, d3)
   END;
