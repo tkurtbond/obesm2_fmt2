@@ -12,9 +12,10 @@ MODULE Besm2Entities; (* A BESM entity, read once from its YAML *)
    message of its own.  Its own messages are for YAML of the wrong
    shape -- a list that isn't a sequence, an item that isn't a mapping
    -- which olibfyaml treats as a programming error and halts on, and
-   which the Ada version doesn't check either (it dies with an
-   assertion failure, status 1).  Here they are ordinary input errors
-   (the Buffer port's PLAN.md, step 4).
+   which the Ada version didn't check either (it died with an
+   assertion failure, status 1, until it was fixed to report them in
+   these words).  Here they are ordinary input errors (the Buffer
+   port's PLAN.md, steps 4 and 14).
 
    Every string is a rope.  The empty rope is NIL, so a field that may
    be absent has a flag saying whether it was there (PLAN.md,
@@ -244,8 +245,8 @@ BEGIN
     r := Ropes.AppendChar(name, " "); AddSign(r, kind); r := Ropes.AppendChar(r, "1")
   ELSIF item.IsSequence() THEN
     len := item.Length();
-    (* The Ada version reads item 2 before checking the length, so a
-       shorter one dies there, with an assertion failure. *)
+    (* The Ada version read item 2 before checking the length, so a
+       shorter one died there, with an assertion failure (since fixed). *)
     IF len < 2 THEN RETURN Fail(item, "customizer sequence too short") END;
     part := item.Item(0);
     IF ~Scalar(part, name) THEN RETURN FALSE END;

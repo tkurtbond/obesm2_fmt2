@@ -273,6 +273,22 @@ Each step ends with its tests passing and this file updated.
    - Overall, geometric mean of all 24 cases: 0.97 of the
      instructions, 0.89 of the CPU time.
 
+10. [done] **Caught up with the Buffer port's step 14** (obesm2_fmt
+    a18b73a, 289ef95), which this repo was forked before: the Ada
+    version fixed the defects the ports were written to avoid.
+    - `test/golden.cases`: the `shape-*` fixtures are in the `bad`
+      globs, since the Ada version now reports them in the ports'
+      words, and `sort-ties` is an `ada` case, with a grid case, since
+      the Ada sort is stable now: 363 golden files, identical to the
+      Buffer port's at 52d7b20.
+    - `test/cli.sh`: a directory given as a file is reported (fixed in
+      olibfyaml, `FyThin.OpenErrno`; this binary needed rebuilding to
+      get it), and a pipe given as a path is read whole.
+    - The comments, here and in the fixtures, that described the Ada
+      defects as current.
+    - `make compare` against the Buffer port built at 52d7b20: 1,116
+      runs, all identical.
+
 ## Deliberate differences from the Buffer port
 
 None. The one there was (step 7) was a defect in the Buffer port, and

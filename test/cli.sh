@@ -5,9 +5,9 @@
 # unit tests do, and exits 1 if any failed.
 #
 # Statuses follow the Ada version (help 1, command-line mistakes 2, bad
-# input files 0), except where the Buffer port's PLAN.md, step 3, records a deliberate
-# difference: -u/-U with more than one character and -w below 25 exit 2
-# here.
+# input files 0, an output file that can't be created or written 1).
+# Before Ada 8308c10 (the Buffer port's PLAN.md, step 14), -u/-U with
+# more than one character and -w below 25 exited 2 only here.
 
 prog=${1:-./besm2_fmt}
 data=test/data
@@ -53,6 +53,15 @@ check "-o to a directory that doesn't exist exits 1 with the OS reason" 1 \
 check "a missing file is reported and the run goes on, exit 0" 0 \
   '^besm2_fmt: nosuch\.yaml: error: No such file or directory$' "$f" nosuch.yaml "$f"
 check "-- ends the options" 0 '^besm2_fmt: -t: error: No such file or directory$' -- -t
+check "a directory is reported, not read as an empty file" 0 \
+  '^besm2_fmt: test/data: error: Is a directory$' test/data "$f"
+# A pipe given as a path (/dev/fd/N) must lose nothing to the check
+# that the file can be opened: libfyaml opens it again.
+if "$prog" <(cat "$f") | cmp -s - <("$prog" "$f"); then
+  echo "ok   - a pipe given as a path is read whole"
+else
+  echo "FAIL - a pipe given as a path is read whole"; failed=$((failed + 1))
+fi
 
 # A bad entity is reported, writes nothing, and ends its file; entities
 # before it are written, and the run goes on with the next file.  Its
