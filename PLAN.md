@@ -289,6 +289,17 @@ Each step ends with its tests passing and this file updated.
     - `make compare` against the Buffer port built at 52d7b20: 1,116
       runs, all identical.
 
+11. [done] **Six `besm2-rst` quirks fixed, as in the Buffer port**
+    (its step 15 and ADA-DIFFERENCES.md, 5.1; besm2_fmt's QUIRKS.md):
+    `48154ad` for items 1 to 3 (the `-R` line into the `-o` file, a bad
+    entity skipped and the run exiting 1, `--help` exiting 0, and the
+    golden files' `==== exit 1 ====` line), `4703413` for items 4 to 6
+    (`-p` in grid and raw ms, a blank line after `.TE`, the TOTAL row
+    always). Each with golden files from the Ada version at the
+    matching commit (`bf18fa4`, `afb25ce`), identical to the Buffer
+    port's at `5a9ff04` and `3be8f1e`, and `make compare` against the
+    Buffer port built at those commits: 1,116 runs, all identical.
+
 ## Deliberate differences from the Buffer port
 
 None. The one there was (step 7) was a defect in the Buffer port, and
