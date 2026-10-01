@@ -49,6 +49,7 @@ make benchmark  # timing against the Ada binary and the Buffer port
 make perfdata   # measure this program alone: build/perfdata.tsv
 make perfcompare  # perfdata here and in the Buffer port, then PERFORMANCE-ROPES-VS-BUFFERS.md
 make rst        # build/*.gen.rst from test/data/*-2e.yaml
+make hmm        # build/*.gen.hmm, h-m-m outlines from the same fixtures
 make pdf        # build/*.ms.pdf from those (pandoc, --template=tkb)
 make install    # to $(PREFIX)/bin, default ~/local/bin (DESTDIR for staging)
 make uninstall
