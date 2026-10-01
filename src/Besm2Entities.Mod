@@ -262,6 +262,10 @@ BEGIN
       END;
       Besm2Text.Add(r, ": "); r := Ropes.Cat(r, Besm2Text.Join(appliesTo, ", "))
     END;
+    (* The sign comes from kind, so counts-as is a number of levels: a
+       negative one would be written "+-1" or "−-1".  Checked after the
+       applies-to items, in the Ada version's order. *)
+    IF countsAs <= 0 THEN RETURN Fail(item.Item(1), "counts-as must be positive") END;
     r := Ropes.AppendChar(r, " "); AddSign(r, kind); Besm2Text.AddInt(r, countsAs)
   ELSE
     RETURN Fail(item, "do not understand customizer")
