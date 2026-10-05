@@ -46,8 +46,8 @@ You need:
   (override with `VOC=`).
 - libfyaml, found through `pkg-config`.
 - `ArgParser.Mod` and `Err.Mod` from ArgParser, and `Ropes.Mod` from
-  Ropes, installed into `OBERON_MODULES` (default
-  `/usr/local/sw/versions/oberon/include`) by `make install` in each
+  Ropes, installed into `VOC_OBERON_MODULES` (default
+  `/usr/local/sw/versions/oberon/voc/include`) by `make install` in each
   of those repos.
 - A checkout of olibfyaml at `OLIBFYAML` (default
   `~/Repos/Oberon/olibfyaml`).

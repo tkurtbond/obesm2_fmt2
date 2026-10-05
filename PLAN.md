@@ -91,8 +91,8 @@ starts with `r := NIL`, as a `Buffer` started with `Reset`.
 
 ## 3. Where `Ropes.Mod` comes from
 
-From `OBERON_MODULES` (default
-`/usr/local/sw/versions/oberon/include`), through the makefile's
+From `VOC_OBERON_MODULES` (default
+`/usr/local/sw/versions/oberon/voc/include`), through the makefile's
 `vpath`, like `ArgParser.Mod` and `Err.Mod`: that is how the Ropes
 repo's `AGENTS.md` says other repos get it (`make install` there), and
 the installed copy is identical to the checkout's today. It is
@@ -140,11 +140,11 @@ Each step ends with its tests passing and this file updated.
 1. [done] **Scaffolding.** Copied the makefile, `rtl/`, the tests,
    fixtures and golden files from the Buffer port; added `Ropes` to
    the shared modules, with a check that `Ropes.Mod` is in
-   `OBERON_MODULES`. Findings:
+   `VOC_OBERON_MODULES`. Findings:
    - **`Ropes` works under `-OC`.** `RopeTest.Mod`, built from the
      Ropes checkout with `voc -OC` and the makefile's `CFLAGS`, passes
      242 of 242 checks.
-   - `Ropes.Mod` in `OBERON_MODULES` is identical to the checkout's.
+   - `Ropes.Mod` in `VOC_OBERON_MODULES` is identical to the checkout's.
 2. [done] **`Besm2Text`** with `TestText` (46 checks): the `TestStr`
    checks that still mean something, plus NIL (the empty rope) in every
    operation, ropes of several leaves (`Ropes.Depth` > 0: built from

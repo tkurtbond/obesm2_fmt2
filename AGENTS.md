@@ -24,11 +24,11 @@ file is operational notes, not a design doc.
 |---|---|
 | The Buffer port being rewritten | `~/Repos/RPG/Tools/obesm2_fmt/` (`src/`, `PLAN.md`, `ADA-DIFFERENCES.md`, `VOC-GC-BUG.md`) |
 | Its binary (the oracle for `make compare`) | `~/Repos/RPG/Tools/obesm2_fmt/obesm2_fmt` (build with `make` there) |
-| Ropes | `~/Repos/Oberon/Ropes/` (`AGENTS.md`, `Ropes.Mod`, `RopeTest.Mod`); installed copy in `$OBERON_MODULES` |
+| Ropes | `~/Repos/Oberon/Ropes/` (`AGENTS.md`, `Ropes.Mod`, `RopeTest.Mod`); installed copy in `$VOC_OBERON_MODULES` |
 | Ada program | `~/Repos/RPG/Tools/besm2_fmt/` |
 | Ada binary (the oracle for `make golden`) | `~/Repos/RPG/Tools/besm2_fmt/besm2_fmt` |
 | Original Scheme binary | `~/local/bin/besm2-rst` (on `PATH`) |
-| ArgParser (command-line parsing) | `~/Repos/Oberon/ArgParser/`; installed copies in `$OBERON_MODULES` (default `/usr/local/sw/versions/oberon/include`) |
+| ArgParser (command-line parsing) | `~/Repos/Oberon/ArgParser/`; installed copies in `$VOC_OBERON_MODULES` (default `/usr/local/sw/versions/oberon/voc/include`) |
 | olibfyaml (YAML) | `~/Repos/Oberon/olibfyaml/` (`AGENTS.md`, `src/FyThin.Mod`, `src/Fyaml.Mod`, `src/FyamlStreams.Mod`) |
 | voc compiler | `/usr/local/sw/versions/voc/git/bin/voc`; not on the default `PATH` |
 | voc source and runtime | `/usr/local/sw/src/lang/Oberon/vishap/compiler/` |
@@ -68,7 +68,7 @@ make print-VAR  # show a makefile variable
   `-OC`: see PLAN.md, step 1.
 - **Don't copy `Ropes.Mod`, `ArgParser.Mod`, `Err.Mod` or olibfyaml's
   modules into this repo.** The makefile finds the first three through
-  `vpath` in `OBERON_MODULES` and olibfyaml's through `OLIBFYAML`
+  `vpath` in `VOC_OBERON_MODULES` and olibfyaml's through `OLIBFYAML`
   (default `~/Repos/Oberon/olibfyaml`), and voc compiles them into
   `obj/`. A change `Ropes` needs is made in its own repo, tested and
   installed there (`make test`, `make install`), and needs the user's
