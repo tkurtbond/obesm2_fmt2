@@ -35,40 +35,63 @@ TYPE
   Named* = POINTER TO NamedDesc;
   NamedDesc* = RECORD name-: Rope END;
 
+  (* A number's `overrides:` (besm2_cg_po's PLAN.md, A4): the keys of
+     its mapping whose number the user typed instead of the
+     generator's.  The terse and grid formats print an overridden
+     number with Besm2Layout.OverrideMark after it; the others print it
+     plain.  Each mapping accepts only the keys of its computed
+     numbers: points on a stat, attribute, defect or skill, damage on
+     an attribute, value on a derived value.  Any other name is bad
+     input.  The *Mark fields say which are overridden. *)
+
   Stat* = POINTER TO StatDesc;
   StatDesc* = RECORD (NamedDesc)
     value-: Rope;
-    points-: INTEGER
+    points-: INTEGER;
+    pointsMark-: BOOLEAN                   (* overrides: [points] *)
   END;
 
   Derived* = POINTER TO DerivedDesc;
   DerivedDesc* = RECORD (NamedDesc)
     value-: Rope;
-    alternatives-: Besm2Text.List          (* none: n = 0 *)
+    alternatives-: Besm2Text.List;         (* none: n = 0 *)
+    valueMark-: BOOLEAN                    (* overrides: [value] *)
   END;
 
   Attribute* = POINTER TO AttributeDesc;
+  (* name is followed by ": " and the `subject`, if there is one
+     (besm2_cg_po's PLAN.md, A4): the packed name a file without
+     `subject` has.  So is a defect's. *)
   AttributeDesc* = RECORD (NamedDesc)
     (* With " (effective)" already added when there is one: every
        format does it the same way. *)
     level-: Rope;
     points-: INTEGER;
     (* make-attribute-details: elements, enhancements and limiters, and
-       the details text, combined; NIL for none. *)
-    details-: Rope
+       the details text, combined; NIL for none.  Before them, a Weapon
+       Attack's `abilities`, `disabilities`, `different-gunner` and
+       `damage`, in the book's order (p. 92); after the elements, the
+       `choices`. *)
+    details-: Rope;
+    (* details with Besm2Layout.OverrideMark after the damage when it
+       is overridden (overrides: [damage]); else the same as details. *)
+    markedDetails-: Rope;
+    pointsMark-: BOOLEAN                   (* overrides: [points] *)
   END;
 
   Defect* = POINTER TO DefectDesc;
   DefectDesc* = RECORD (NamedDesc)
     points-: INTEGER;
-    details-: Rope                        (* trimmed; NIL for none *)
+    details-: Rope;                       (* trimmed; NIL for none *)
+    pointsMark-: BOOLEAN                   (* overrides: [points] *)
   END;
 
   Skill* = POINTER TO SkillDesc;
   SkillDesc* = RECORD (NamedDesc)
     level-: Rope;
     points-: INTEGER;
-    specialisations-: Besm2Text.List       (* none: n = 0 *)
+    specialisations-: Besm2Text.List;      (* none: n = 0 *)
+    pointsMark-: BOOLEAN                   (* overrides: [points] *)
   END;
 
   Items = POINTER TO ARRAY OF Named;
@@ -220,6 +243,126 @@ BEGIN
   RETURN Sequence(m, key, seq) & ((seq = NIL) OR Strings(seq, l))
 END StringList;
 
+(* ---- The keys besm2_cg_po's PLAN.md, A4, adds, all optional ---- *)
+
+(* The "name", with ": " and the trimmed "subject" after it if there is
+   one: the packed name ("Own a Big Mecha: FV2021 Coleopteran") a file
+   without `subject` holds in `name`.  The Ada Name_With_Subject. *)
+PROCEDURE NameWithSubject(m: Fyaml.Node; VAR s: Rope): BOOLEAN;
+  VAR subject: Rope; has: BOOLEAN;
+BEGIN
+  IF ~Required(m, "name", s) OR ~Optional(m, "subject", subject, has) THEN RETURN FALSE END;
+  IF has THEN Besm2Text.Add(s, ": "); s := Ropes.Cat(s, Besm2Text.Trim(subject)) END;
+  RETURN TRUE
+END NameWithSubject;
+
+(* Sets marked to whether m's "overrides" lists key.  The list must be a
+   sequence of scalars, each one of allowed (key names separated by
+   ", "): a misspelled name would otherwise silently drop a mark.  As
+   in the Ada Overridden, an item is allowed if ", ITEM, " occurs in
+   ", ALLOWED, ", and every item is checked. *)
+PROCEDURE Overridden(m: Fyaml.Node; key, allowed: ARRAY OF CHAR; VAR marked: BOOLEAN): BOOLEAN;
+  VAR seq, item: Fyaml.Node; it: Fyaml.ItemIter; t: Fyaml.String;
+    hay, needle, msg: Rope; pattern: Besm2Text.String;
+BEGIN
+  marked := FALSE;
+  IF ~Sequence(m, "overrides", seq) THEN RETURN FALSE END;
+  IF seq # NIL THEN
+    hay := Ropes.FromString(", "); Besm2Text.Add(hay, allowed); Besm2Text.Add(hay, ", ");
+    seq.Items(it);
+    WHILE it.Next(item) DO
+      IF ~item.IsScalar() THEN RETURN Fail(item, "an override is not a key name") END;
+      t := item.Scalar();
+      needle := Ropes.FromString(", "); Besm2Text.Add(needle, t^); Besm2Text.Add(needle, ", ");
+      pattern := Besm2Text.Chars(needle);
+      IF Ropes.Find(hay, pattern^, 0) < 0 THEN
+        msg := Ropes.FromChar('"'); Besm2Text.Add(msg, t^); Besm2Text.Add(msg, '" is not one of ');
+        Besm2Text.Add(msg, allowed);
+        pattern := Besm2Text.Chars(msg);
+        RETURN Fail(item, pattern^)
+      END;
+      IF t^ = key THEN marked := TRUE END
+    END
+  END;
+  RETURN TRUE
+END Overridden;
+
+(* An item of a Weapon Attack's "abilities" or "disabilities", or of an
+   attribute's "choices": a name, or a mapping of "name", "counts-as"
+   (a positive count, written " ×N" when 2 or more) and, if
+   detailAllowed (not for a choice), "detail" (written " [DETAIL]").
+   The Ada Format_Item. *)
+PROCEDURE FormatItem(item: Fyaml.Node; detailAllowed: BOOLEAN; VAR s: Rope): BOOLEAN;
+  VAR name, detail: Rope; countsAs: INTEGER; has: BOOLEAN;
+BEGIN
+  IF item.IsScalar() THEN
+    IF ~Scalar(item, name) THEN RETURN FALSE END;
+    s := Besm2Text.Trim(name);
+    RETURN TRUE
+  END;
+  IF ~item.IsMapping() THEN RETURN Fail(item, "not a name or a mapping") END;
+  IF ~Required(item, "name", name)
+     OR ~item.IntegerFieldOr("counts-as", 1, countsAs, yamlError) THEN
+    RETURN FALSE
+  END;
+  s := Besm2Text.Trim(name);
+  IF countsAs < 1 THEN RETURN Fail(item.Value("counts-as"), "counts-as must be positive") END;
+  IF countsAs >= 2 THEN
+    s := Ropes.AppendChar(s, " "); s := Ropes.Cat(s, Besm2Layout.TimesGlyph());
+    Besm2Text.AddInt(s, countsAs)
+  END;
+  IF detailAllowed & item.HasKey("detail") THEN
+    IF ~Optional(item, "detail", detail, has) THEN RETURN FALSE END;
+    Besm2Text.Add(s, " ["); s := Ropes.Cat(s, Besm2Text.Trim(detail));
+    s := Ropes.AppendChar(s, "]")
+  END;
+  RETURN TRUE
+END FormatItem;
+
+(* The items of sequence seq (NIL for none), by FormatItem, appended to
+   l. *)
+PROCEDURE FormatItems(seq: Fyaml.Node; detailAllowed: BOOLEAN; VAR l: Besm2Text.List): BOOLEAN;
+  VAR it: Fyaml.ItemIter; item: Fyaml.Node; s: Rope;
+BEGIN
+  IF seq # NIL THEN
+    seq.Items(it);
+    WHILE it.Next(item) DO
+      IF ~FormatItem(item, detailAllowed, s) THEN RETURN FALSE END;
+      Besm2Text.Append(l, s)
+    END
+  END;
+  RETURN TRUE
+END FormatItems;
+
+(* A Weapon Attack's structured keys, as the book records an attack
+   (p. 92): its Abilities, its Disabilities, "Different Gunner", then
+   "N Damage", joined with ", "; NIL if it has none of them.  plain is
+   that, marked the same with Besm2Layout.OverrideMark after N if
+   damageMark.  The Ada Weapon_Part, called once for both. *)
+PROCEDURE WeaponPart(m: Fyaml.Node; damageMark: BOOLEAN; VAR plain, marked: Rope): BOOLEAN;
+  VAR parts: Besm2Text.List; seq: Fyaml.Node; gunner: BOOLEAN; damage: INTEGER;
+    head, n: Rope;
+BEGIN
+  Besm2Text.Clear(parts);
+  IF ~Sequence(m, "abilities", seq) OR ~FormatItems(seq, TRUE, parts)
+     OR ~Sequence(m, "disabilities", seq) OR ~FormatItems(seq, TRUE, parts)
+     OR ~m.BooleanFieldOr("different-gunner", FALSE, gunner, yamlError) THEN
+    RETURN FALSE
+  END;
+  IF gunner THEN Besm2Text.Append(parts, Ropes.FromString("Different Gunner")) END;
+  head := Besm2Text.Join(parts, ", ");
+  plain := head; marked := head;
+  IF m.HasKey("damage") THEN
+    IF ~Integer(m, "damage", damage) THEN RETURN FALSE END;
+    IF head # NIL THEN Besm2Text.Add(head, ", ") END;
+    n := Besm2Text.Int(damage);
+    plain := Ropes.Cat(head, n); Besm2Text.Add(plain, " Damage");
+    IF damageMark THEN n := Ropes.Cat(n, Besm2Layout.OverrideMark()) END;
+    marked := Ropes.Cat(head, n); Besm2Text.Add(marked, " Damage")
+  END;
+  RETURN TRUE
+END WeaponPart;
+
 (* ---- Enhancements, limiters and attribute details ---- *)
 
 (* An enhancement counts as a minus in the details text and a limiter as
@@ -292,17 +435,36 @@ BEGIN
   RETURN TRUE
 END Customizers;
 
-(* besm2-rst.scm's make-attribute-details: the elements, sorted and
-   joined with ", "; then the enhancements and limiters together, sorted
-   and joined with ", "; then the details text; the non-empty ones of
-   those joined with "; ".  NIL if all three are empty. *)
-PROCEDURE AttributeDetails(m: Fyaml.Node; detailsText: Rope; VAR s: Rope): BOOLEAN;
-  VAR parts, elements, custom: Besm2Text.List; enhancements, limiters: Fyaml.Node;
+(* a and b joined with "; ", or whichever isn't NIL. *)
+PROCEDURE Join2(a, b: Rope): Rope;
 BEGIN
-  Besm2Text.Clear(parts); Besm2Text.Clear(custom);
+  IF a = NIL THEN RETURN b ELSIF b = NIL THEN RETURN a END;
+  Besm2Text.Add(a, "; ");
+  RETURN Ropes.Cat(a, b)
+END Join2;
+
+(* besm2-rst.scm's make-attribute-details, with what besm2_cg_po's
+   PLAN.md, A4, adds: the weapon part (WeaponPart); the elements,
+   sorted and joined with ", "; the choices, likewise; then the
+   enhancements and limiters together, sorted and joined with ", ";
+   then the details text; the non-empty ones of those joined with "; ".
+   NIL if all are empty.  s is with plain as the weapon part, marked
+   with marked: the rest is the same, so it is built once. *)
+PROCEDURE AttributeDetails(m: Fyaml.Node; plain, marked, detailsText: Rope;
+                           VAR s, ms: Rope): BOOLEAN;
+  VAR parts, elements, choices, custom: Besm2Text.List;
+    enhancements, limiters, choiceSeq: Fyaml.Node; rest: Rope;
+BEGIN
+  Besm2Text.Clear(parts); Besm2Text.Clear(custom); Besm2Text.Clear(choices);
   IF ~StringList(m, "elements", elements) THEN RETURN FALSE END;
   IF elements.n > 0 THEN
     Besm2Text.SortCI(elements); Besm2Text.Append(parts, Besm2Text.Join(elements, ", "))
+  END;
+  IF ~Sequence(m, "choices", choiceSeq) OR ~FormatItems(choiceSeq, FALSE, choices) THEN
+    RETURN FALSE
+  END;
+  IF choices.n > 0 THEN
+    Besm2Text.SortCI(choices); Besm2Text.Append(parts, Besm2Text.Join(choices, ", "))
   END;
   IF ~Sequence(m, "enhancements", enhancements) OR ~Sequence(m, "limiters", limiters)
      OR ~Customizers(enhancements, Enhancement, custom)
@@ -313,7 +475,8 @@ BEGIN
     Besm2Text.SortCI(custom); Besm2Text.Append(parts, Besm2Text.Join(custom, ", "))
   END;
   IF detailsText # NIL THEN Besm2Text.Append(parts, detailsText) END;
-  s := Besm2Text.Join(parts, "; ");
+  rest := Besm2Text.Join(parts, "; ");
+  s := Join2(plain, rest); ms := Join2(marked, rest);
   RETURN TRUE
 END AttributeDetails;
 
@@ -334,6 +497,7 @@ BEGIN
   NEW(s); x := s;
   RETURN Required(m, "name", s.name) & Required(m, "value", s.value)
          & Integer(m, "points", s.points)
+         & Overridden(m, "points", "points", s.pointsMark)
 END LoadStat;
 
 PROCEDURE LoadDerived(m: Fyaml.Node; VAR x: Named): BOOLEAN;
@@ -342,17 +506,22 @@ BEGIN
   NEW(d); x := d;
   RETURN Required(m, "name", d.name) & Required(m, "value", d.value)
          & StringList(m, "alternatives", d.alternatives)
+         & Overridden(m, "value", "value", d.valueMark)
 END LoadDerived;
 
 (* level is required, for every attribute, mecha ones included:
    besm-tools commit 6139f21, ported to the Ada version too. *)
 PROCEDURE LoadAttribute(m: Fyaml.Node; VAR x: Named): BOOLEAN;
-  VAR a: Attribute; detailsText, effective: Rope; has: BOOLEAN;
+  CONST allowed = "points, damage";
+  VAR a: Attribute; detailsText, effective, plain, marked: Rope; has, damageMark: BOOLEAN;
 BEGIN
   NEW(a); x := a;
-  IF ~Required(m, "name", a.name) OR ~Integer(m, "points", a.points)
+  IF ~NameWithSubject(m, a.name) OR ~Integer(m, "points", a.points)
      OR ~Required(m, "level", a.level) OR ~Details(m, detailsText)
-     OR ~Optional(m, "effective", effective, has) THEN
+     OR ~Optional(m, "effective", effective, has)
+     OR ~Overridden(m, "damage", allowed, damageMark)
+     OR ~Overridden(m, "points", allowed, a.pointsMark)
+     OR ~WeaponPart(m, damageMark, plain, marked) THEN
     RETURN FALSE
   END;
   (* An empty effective adds nothing, like an absent one. *)
@@ -360,15 +529,16 @@ BEGIN
     Besm2Text.Add(a.level, " ("); a.level := Ropes.Cat(a.level, effective);
     a.level := Ropes.AppendChar(a.level, ")")
   END;
-  RETURN AttributeDetails(m, detailsText, a.details)
+  RETURN AttributeDetails(m, plain, marked, detailsText, a.details, a.markedDetails)
 END LoadAttribute;
 
 PROCEDURE LoadDefect(m: Fyaml.Node; VAR x: Named): BOOLEAN;
   VAR d: Defect;
 BEGIN
   NEW(d); x := d;
-  RETURN Required(m, "name", d.name) & Integer(m, "points", d.points)
+  RETURN NameWithSubject(m, d.name) & Integer(m, "points", d.points)
          & Details(m, d.details)
+         & Overridden(m, "points", "points", d.pointsMark)
 END LoadDefect;
 
 PROCEDURE LoadSkill(m: Fyaml.Node; VAR x: Named): BOOLEAN;
@@ -378,6 +548,7 @@ BEGIN
   RETURN Required(m, "name", s.name) & Required(m, "level", s.level)
          & Integer(m, "points", s.points)
          & StringList(m, "specialisations", s.specialisations)
+         & Overridden(m, "points", "points", s.pointsMark)
 END LoadSkill;
 
 (* ---- Entities ---- *)

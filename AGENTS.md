@@ -41,7 +41,7 @@ working around any of those libraries.
 ```sh
 export PATH=/usr/local/sw/versions/voc/git/bin:$PATH
 make            # obj/ (voc output) and ./obesm2_fmt2
-make test       # unit tests, test/regs.sh, test/cli.sh, test/golden.sh check
+make test       # unit tests, test/regs.sh, test/cli.sh, test/golden.sh check, test/upgraded.sh
 make compare    # stdout, stderr and status against the Buffer port's binary
 make golden     # regenerate test/golden/ from the reference programs
 make valgrind   # the program under valgrind over every fixture and path
@@ -111,7 +111,10 @@ make print-VAR  # show a makefile variable
   files before committing them.
 - A new behaviour worth testing gets a fixture in `test/data/` and a
   line in the golden flag matrix, not a one-off manual diff. Fixtures
-  named `*-2e.yaml` are picked up by every `*-2e` case.
+  named `*-2e.yaml` are picked up by every `*-2e` case, and those
+  named `*-ext.yaml` (the keys besm2_cg_po adds) by the single-file
+  format cases (not the `all` ones, which read every `*-2e` file in
+  one run).
 - `test/cli.sh` checks the command line: exit statuses and a line each
   case's output must contain.
 - Unit tests (`test/Test*.Mod`) print `ok   - <label>` / `FAIL -
