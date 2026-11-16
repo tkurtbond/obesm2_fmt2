@@ -87,7 +87,18 @@ binding treats a call on the wrong kind of node as a programmer error,
 so this is a bug here, not in the binding. Item 0 and the applies-to
 items go through `Scalar`, which reports "not a scalar".
 
-**Status.** Open. A likely fix: `IF ~part.IsScalar() THEN RETURN
-Fail(part, "not a scalar") END` before the `IntegerValue` call, and a
-case in `test/cli.sh` beside the `shape-customizer-short.yaml` one. The
-same code is in pobesm2_fmt2 (its bug 2) and besm2_cg_po (its bug 1).
+**Fix.** `Customizer` checks `part.IsScalar()` before
+`IntegerValue`, and reports `not a scalar` with the node's path, in the
+Ada wording. `test/cli.sh` has two new cases: an enhancement whose
+counts-as is a mapping, and a limiter whose counts-as is a sequence.
+
+**Verified** 2026-11-16: the repro gives
+
+```
+besm2_fmt: error processing enh.yaml: /1/attributes/0/enhancements/0/1: not a scalar
+```
+
+and status 1, as the Ada version does, and `limiters: [[Foo, [1]]]`
+gives `.../limiters/0/1: not a scalar`. `make test` passes.
+
+The same fix is in pobesm2_fmt2 (its bug 2) and besm2_cg_po (its bug 1).
